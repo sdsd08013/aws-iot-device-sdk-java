@@ -39,6 +39,7 @@ import javax.net.ssl.SSLSession;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.java.Log;
 
 /**
  * This class extends {@link AwsIotConnection} to provide the basic MQTT pub/sub
@@ -144,7 +145,7 @@ public class AwsIotMqttConnection extends AwsIotConnection {
         return new HashSet<>();
     }
 
-    private MqttConnectOptions buildMqttConnectOptions(AbstractAwsIotClient client, SocketFactory socketFactory) {
+    private MqttConnectOptions buildMqttConnectOptions(AbstractAwsIotClient client, SocketFactory socketFactory) throws AWSIotException {
         MqttConnectOptions options = new MqttConnectOptions();
 
         HostnameVerifier verifier = new HostnameVerifier() {
@@ -184,8 +185,8 @@ public class AwsIotMqttConnection extends AwsIotConnection {
 
             options.setWill(message.getTopic(), message.getPayload(), message.getQos().getValue(), false);
         }
-
         return options;
+
     }
 
 }
