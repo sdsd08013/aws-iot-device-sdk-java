@@ -15,17 +15,6 @@
 
 package com.amazonaws.services.iot.client.mqtt;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import javax.net.SocketFactory;
-
-import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttException;
-import org.eclipse.paho.client.mqttv3.MqttMessage;
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
-
 import com.amazonaws.services.iot.client.AWSIotException;
 import com.amazonaws.services.iot.client.AWSIotMessage;
 import com.amazonaws.services.iot.client.core.AbstractAwsIotClient;
@@ -33,8 +22,24 @@ import com.amazonaws.services.iot.client.core.AwsIotConnection;
 import com.amazonaws.services.iot.client.core.AwsIotMessageCallback;
 import com.amazonaws.services.iot.client.core.AwsIotRetryableException;
 
+import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+
+import java.net.UnknownHostException;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.net.SocketFactory;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLSession;
+
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.java.Log;
 
 /**
  * This class extends {@link AwsIotConnection} to provide the basic MQTT pub/sub
@@ -140,14 +145,31 @@ public class AwsIotMqttConnection extends AwsIotConnection {
         return new HashSet<>();
     }
 
-    private MqttConnectOptions buildMqttConnectOptions(AbstractAwsIotClient client, SocketFactory socketFactory) {
+    private MqttConnectOptions buildMqttConnectOptions(AbstractAwsIotClient client, SocketFactory socketFactory) throws AWSIotException {
         MqttConnectOptions options = new MqttConnectOptions();
 
+        HostnameVerifier verifier = new HostnameVerifier() {
+            HostnameVerifier hv = HttpsURLConnection.getDefaultHostnameVerifier();
+
+            @Override
+            public boolean verify(String s, SSLSession sslSession) {
+                try {
+                    if (!hv.verify(s, sslSession)) {
+                        throw new UnknownHostException("invalid hostname");
+                    }
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+        };
+
+        options.setSSLHostnameVerifier(verifier);
         options.setSocketFactory(socketFactory);
         options.setCleanSession(true);
         options.setConnectionTimeout(client.getConnectionTimeout() / 1000);
         options.setKeepAliveInterval(client.getKeepAliveInterval() / 1000);
-        if(client.isClientEnableMetrics()) {
+        if (client.isClientEnableMetrics()) {
             options.setUserName(USERNAME_METRIC_STRING);
         }
 
@@ -163,8 +185,8 @@ public class AwsIotMqttConnection extends AwsIotConnection {
 
             options.setWill(message.getTopic(), message.getPayload(), message.getQos().getValue(), false);
         }
-
         return options;
+
     }
 
 }
